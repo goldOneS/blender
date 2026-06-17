@@ -155,7 +155,7 @@
   <p>Cargando modelo…</p>
 </div>
 
-<div class="hint" id="hint">Arrastra para girar · Pellizca para zoom</div>
+<div class="hint" id="hint">Arrastra o usa las flechas del control · Pellizca/OK para zoom</div>
 
 <canvas id="scene"></canvas>
 
@@ -215,8 +215,81 @@ function initScene() {
   controls.maxDistance = 100;
 
   window.addEventListener('resize', onResize);
+  window.addEventListener('keydown', handleRemoteKey);
   animate();
 }
+
+// Control remoto de TV (flechas, OK, Back) — rota la camara alrededor del modelo
+function handleRemoteKey(e) {
+  const rotateStep = 0.06;   // radianes por pulsacion, horizontal/vertical
+  const zoomStep = 0.92;     // factor de acercamiento/alejamiento
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      orbitHorizontal(rotateStep);
+      e.preventDefault();
+      break;
+    case 'ArrowRight':
+      orbitHorizontal(-rotateStep);
+      e.preventDefault();
+      break;
+    case 'ArrowUp':
+      orbitVertical(rotateStep);
+      e.preventDefault();
+      break;
+    case 'ArrowDown':
+      orbitVertical(-rotateStep);
+      e.preventDefault();
+      break;
+    case 'Enter':
+      dollyCamera(zoomStep); // acercar
+      e.preventDefault();
+      break;
+    case 'Backspace':
+    case 'GoBack':
+      dollyCamera(1 / zoomStep); // alejar
+      e.preventDefault();
+      break;
+  }
+  showRemoteHint();
+}
+
+function orbitHorizontal(angle) {
+  const offset = camera.position.clone().sub(controls.target);
+  const spherical = new THREE.Spherical().setFromVector3(offset);
+  spherical.theta += angle;
+  offset.setFromSpherical(spherical);
+  camera.position.copy(controls.target).add(offset);
+  camera.lookAt(controls.target);
+}
+
+function orbitVertical(angle) {
+  const offset = camera.position.clone().sub(controls.target);
+  const spherical = new THREE.Spherical().setFromVector3(offset);
+  spherical.phi -= angle;
+  spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi));
+  offset.setFromSpherical(spherical);
+  camera.position.copy(controls.target).add(offset);
+  camera.lookAt(controls.target);
+}
+
+function dollyCamera(factor) {
+  const offset = camera.position.clone().sub(controls.target);
+  offset.multiplyScalar(factor);
+  const dist = offset.length();
+  if (dist > controls.minDistance && dist < controls.maxDistance) {
+    camera.position.copy(controls.target).add(offset);
+  }
+}
+
+function showRemoteHint() {
+  const hint = document.getElementById('hint');
+  hint.textContent = '⬅➡ Girar · ⬆⬇ Inclinar · OK Zoom+ · Atrás Zoom-';
+  hint.classList.remove('fade');
+  clearTimeout(window._hintTimeout);
+  window._hintTimeout = setTimeout(() => hint.classList.add('fade'), 4000);
+}
+
 
 function onResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
